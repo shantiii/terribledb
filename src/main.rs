@@ -3,18 +3,40 @@ use std::env;
 use std::io;
 use std::io::ErrorKind;
 
-fn lol() -> u8 {
-    'o' as u8
-}
+mod config;
 
 fn print_usage() {
     eprintln!("usage: terribledb <node_name>");
 }
 
-fn parse_args(args: Vec<String>) -> io::Result<String> {
+#[derive(Debug)]
+enum RunMode {
+    GenConfig(String),
+    Loop,
+    NoOp,
+}
+
+
+fn parse_args(args: Vec<String>) -> io::Result<RunMode> {
     match args.len() {
+        1 => Ok(RunMode::NoOp),
         2 => {
-            Ok(args[1].clone())
+            if args[1] == "loop" {
+                Ok(RunMode::Loop)
+            } else {
+                eprintln!("error: incorrect number of arguments");
+                print_usage();
+                Err(io::Error::new(ErrorKind::InvalidInput, "incorrect number of arguments"))
+            }
+        },
+        3 => {
+            if args[1] == "gen_config" {
+                Ok(RunMode::GenConfig(args[2].clone()))
+            } else {
+                eprintln!("error: must be a config and file");
+                print_usage();
+                Err(io::Error::new(ErrorKind::InvalidInput, "must be a config and file"))
+            }
         },
         _ => {
             eprintln!("error: incorrect number of arguments");
@@ -24,19 +46,25 @@ fn parse_args(args: Vec<String>) -> io::Result<String> {
     }
 }
 
-struct TerribleConfig {
-    name: String
-}
+static CONFIG: config::TerribleConfig = config::new();
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    let result = parse_args(args)?;
+    let run_mode = parse_args(args)?;
 
-    main_loop(|input: &str| -> bool {input.trim() == "stahp"})
+    eprintln!("run_mode {:?}", run_mode);
+    match run_mode {
+        RunMode::GenConfig(filename) => {
+            println!("lol: {}", filename);
+            Ok(())
+        }
+        RunMode::Loop => main_loop(|input: &str| -> bool {input.trim() == "stahp"}),
+        RunMode::NoOp => Ok(())
+    }
 }
 
 fn main_loop<F> (mut break_check: F) -> io::Result<()>
-where F: FnMut(&str) -> bool {
+where F: Fn(&str) -> bool {
     loop {
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
@@ -54,6 +82,6 @@ mod test {
 
     #[test]
     fn test_basic() {
-        assert_eq!(lol(), 'o' as u8);
+        assert_eq!('o' as u8, 'o' as u8);
     }
 }
