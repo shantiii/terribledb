@@ -12,14 +12,14 @@ pub struct TerribleConfig {
 
 pub const fn new() -> TerribleConfig {
     TerribleConfig {
-        version: 1u16,
+        version: LATEST_VERSION,
         name: [0u8; 64]
     }
 }
 
 pub fn with_name(name: &str) -> TerribleConfig {
     let mut cfg = TerribleConfig {
-        version: 1u16,
+        version: LATEST_VERSION,
         name: [0u8; 64]
     };
     let bytes = name.as_bytes();

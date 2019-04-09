@@ -56,6 +56,9 @@ fn main() -> io::Result<()> {
     match run_mode {
         RunMode::GenConfig(filename) => {
             println!("lol: {}", filename);
+            let cfg = config::with_name(&filename);
+            let mut file = std::fs::File::create("okay.cfg")?;
+            config::save(&cfg, &mut file)?;
             Ok(())
         }
         RunMode::Loop => main_loop(|input: &str| -> bool {input.trim() == "stahp"}),
