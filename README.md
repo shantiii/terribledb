@@ -12,9 +12,17 @@ common types of outages I have encountered in production distributed systems.
 
 ## TODO
 
+* [x] Listening on IO
 * [ ] Communications protocol
+* [ ] Multithreaded listener
 * [ ] Service Discovery
 * [ ] Key-Value store locally
 * [ ] Distributed Key-Value Store
 * [ ] Aggregations
 * [ ] Separate this out into a library and a local daemon that provides an interface to the library
+
+# Testing
+
+After running with `terribledb loop` connect on udp with `nc -u localhost
+1234`. You can cause the server to terminate by sending a message with the
+utf-8 string `stahp`. Whitespace is automatically trimmed.

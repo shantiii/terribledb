@@ -46,8 +46,6 @@ fn parse_args(args: Vec<String>) -> io::Result<RunMode> {
     }
 }
 
-static CONFIG: config::TerribleConfig = config::new();
-
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let run_mode = parse_args(args)?;
@@ -66,14 +64,48 @@ fn main() -> io::Result<()> {
     }
 }
 
-fn main_loop<F> (mut break_check: F) -> io::Result<()>
-where F: Fn(&str) -> bool {
+struct LoopState {
+    cfg: config::TerribleConfig,
+    socket: std::net::UdpSocket,
+}
+
+fn init_loop_state() -> io::Result<LoopState> {
+    use std::fs::File;
+    use std::net::UdpSocket;
+    use std::time::Duration;
+    let mut file = File::open("okay.cfg")?;
+    let mut cfg = config::load(&mut file)?;
+    let mut socket = UdpSocket::bind("0.0.0.0:1234")?;
+    socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set_read_timeout failed");
+    Ok(LoopState {
+        cfg: cfg,
+        socket: socket,
+    })
+}
+
+fn main_loop (mut break_check: impl Fn(&str) -> bool) -> io::Result<()> {
+    use std::io::{Error, ErrorKind};
+    let mut loop_state = init_loop_state()?;
+    let mut recv_buffer = [0u8; 4096];
     loop {
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        println!("You typed: {}", input.trim());
-        if break_check(&input) {
-            break;
+        match loop_state.socket.recv_from(&mut recv_buffer) {
+            Ok((bytes_read, src_addr)) => {
+                let read_data = &mut recv_buffer[..bytes_read];
+                let mut input = String::from_utf8(read_data.to_vec()).expect("owned");
+                //io::stdin().read_line(&mut input)?;
+                eprintln!("recv {:?} from {:?}", &read_data, &src_addr);
+                if break_check(&input) {
+                    break;
+                }
+            }
+            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                eprint!(".");
+                continue;
+            }
+            Err(ref e) => {
+                eprintln!("fucked up now: {:?}", e);
+                break;
+            }
         }
     }
     Ok(())
