@@ -1,9 +1,10 @@
-
 use std::env;
 use std::io;
 use std::io::ErrorKind;
 
 mod config;
+//mod storage;
+mod journal;
 
 fn print_usage() {
     eprintln!("usage: terribledb <node_name>");
@@ -75,6 +76,7 @@ fn main() -> io::Result<()> {
 struct LoopState {
     cfg: config::TerribleConfig,
     socket: std::net::UdpSocket,
+    counter: u64,
 }
 
 fn init_loop_state() -> io::Result<LoopState> {
@@ -89,6 +91,7 @@ fn init_loop_state() -> io::Result<LoopState> {
     Ok(LoopState {
         cfg: cfg,
         socket: socket,
+        counter: 0,
     })
 }
 
@@ -103,18 +106,19 @@ fn main_loop(break_check: impl Fn(&str) -> bool) -> io::Result<()> {
                     .expect("received data is not valid utf-8");
                 eprintln!("recv {:?} from {:?}", &read_data, &src_addr);
                 if break_check(&input) {
+                    eprintln!("break recv'd");
                     break;
                 }
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 eprint!(".");
-                continue;
             }
             Err(ref e) => {
                 eprintln!("fucked up now: {:?}", e);
                 break;
             }
         }
+        loop_state.counter += 1;
     }
     Ok(())
 }
