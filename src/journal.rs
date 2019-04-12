@@ -10,31 +10,10 @@ pub trait Journal {
     type State;
 
     fn append_entry(&mut self, op: &Self::Op) -> Result<(), ()>;
-    //fn get_entry(&self, idx: Self::Index) -> Result<&StateOp<State=Self::State>, ()>;
+    fn get_entry(&self, idx: Self::Index) -> Result<&Self::Op, ()>;
     fn next_index(&self) -> Self::Index;
     fn state(&mut self) -> &Self::State;
 }
-
-/*
-
-impl<T> StateOp for CounterOp<T>
-where T: AddAssign + SubAssign  {
-    type State = T;
-
-    fn apply(&self, &mut state: &mut Self::State) -> Result<(), ()> {
-        match *self {
-            CounterOp::Increment(inc) => state += inc,
-            CounterOp::Decrement(dec) => state -= dec,
-        }
-        Ok(())
-    }
-}
-
-struct JournaledCounter<T> {
-    log: Vec<CounterOp<T>>,
-    state: T,
-}
-*/
 
 #[cfg(test)]
 mod test {
@@ -137,16 +116,3 @@ mod test {
         assert_eq!(*journal.state(), 1);
     }
 }
-
-/*fn main() -> Result<(), ()> {
-
-let mut journal = CounterJournal::new();
-println!("state: {:?}", journal.state());
-journal.append_entry(&ops[0])?;
-println!("state: {:?}", journal.state());
-journal.append_entry(&ops[1])?;
-println!("state: {:?}", journal.state());
-
-Ok(())
-}
-*/
