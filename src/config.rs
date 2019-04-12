@@ -1,5 +1,5 @@
 use std::io;
-use std::io::{Read, Write, ErrorKind};
+use std::io::{ErrorKind, Read, Write};
 
 /* The magic number that leads every config file. */
 const MAGIC_NUMBER: [u8; 4] = [0xDE, 0xAD, 0xBE, 0xEF];
@@ -13,14 +13,14 @@ pub struct TerribleConfig {
 pub const fn new() -> TerribleConfig {
     TerribleConfig {
         version: LATEST_VERSION,
-        name: [0u8; 64]
+        name: [0u8; 64],
     }
 }
 
 pub fn with_name(name: &str) -> TerribleConfig {
     let mut cfg = TerribleConfig {
         version: LATEST_VERSION,
-        name: [0u8; 64]
+        name: [0u8; 64],
     };
     let bytes = name.as_bytes();
     let bytes_len = bytes.len();
@@ -34,13 +34,19 @@ pub fn load(source: &mut Read) -> io::Result<TerribleConfig> {
     let mut buf = [0u8; 64];
     source.read_exact(&mut buf[0..4])?;
     if buf[0..4] != MAGIC_NUMBER {
-        return Err(io::Error::new(ErrorKind::InvalidData, "magic number mismatch"))
+        return Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "magic number mismatch",
+        ));
     }
     source.read_exact(&mut buf[0..2])?;
-    let version = u16::from_be_bytes([buf[0],buf[1]]);
+    let version = u16::from_be_bytes([buf[0], buf[1]]);
     match version {
         1 => load_v1(source),
-        _ => Err(io::Error::new(ErrorKind::InvalidData, "unknown config version")),
+        _ => Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "unknown config version",
+        )),
     }
 }
 

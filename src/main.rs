@@ -16,7 +16,6 @@ enum RunMode {
     NoOp,
 }
 
-
 fn parse_args(args: Vec<String>) -> io::Result<RunMode> {
     match args.len() {
         1 => Ok(RunMode::NoOp),
@@ -26,22 +25,31 @@ fn parse_args(args: Vec<String>) -> io::Result<RunMode> {
             } else {
                 eprintln!("error: incorrect number of arguments");
                 print_usage();
-                Err(io::Error::new(ErrorKind::InvalidInput, "incorrect number of arguments"))
+                Err(io::Error::new(
+                    ErrorKind::InvalidInput,
+                    "incorrect number of arguments",
+                ))
             }
-        },
+        }
         3 => {
             if args[1] == "gen_config" {
                 Ok(RunMode::GenConfig(args[2].clone()))
             } else {
                 eprintln!("error: must be a config and file");
                 print_usage();
-                Err(io::Error::new(ErrorKind::InvalidInput, "must be a config and file"))
+                Err(io::Error::new(
+                    ErrorKind::InvalidInput,
+                    "must be a config and file",
+                ))
             }
-        },
+        }
         _ => {
             eprintln!("error: incorrect number of arguments");
             print_usage();
-            Err(io::Error::new(ErrorKind::InvalidInput, "incorrect number of arguments"))
+            Err(io::Error::new(
+                ErrorKind::InvalidInput,
+                "incorrect number of arguments",
+            ))
         }
     }
 }
@@ -59,8 +67,8 @@ fn main() -> io::Result<()> {
             config::save(&cfg, &mut file)?;
             Ok(())
         }
-        RunMode::Loop => main_loop(|input: &str| -> bool {input.trim() == "stahp"}),
-        RunMode::NoOp => Ok(())
+        RunMode::Loop => main_loop(|input: &str| -> bool { input.trim() == "stahp" }),
+        RunMode::NoOp => Ok(()),
     }
 }
 
@@ -73,32 +81,32 @@ fn init_loop_state() -> io::Result<LoopState> {
     use std::fs::File;
     use std::net::UdpSocket;
     use std::time::Duration;
-    let mut file = File::open("okay.cfg")?;
-    let mut cfg = config::load(&mut file)?;
-    let mut socket = UdpSocket::bind("0.0.0.0:1234")?;
-    socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set_read_timeout failed");
+    let cfg = File::open("okay.cfg").and_then(|mut f| config::load(&mut f))?;
+    let socket = UdpSocket::bind("0.0.0.0:1234")?;
+    socket
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("set_read_timeout failed");
     Ok(LoopState {
         cfg: cfg,
         socket: socket,
     })
 }
 
-fn main_loop (mut break_check: impl Fn(&str) -> bool) -> io::Result<()> {
-    use std::io::{Error, ErrorKind};
+fn main_loop(break_check: impl Fn(&str) -> bool) -> io::Result<()> {
     let mut loop_state = init_loop_state()?;
     let mut recv_buffer = [0u8; 4096];
     loop {
         match loop_state.socket.recv_from(&mut recv_buffer) {
             Ok((bytes_read, src_addr)) => {
                 let read_data = &mut recv_buffer[..bytes_read];
-                let mut input = String::from_utf8(read_data.to_vec()).expect("owned");
-                //io::stdin().read_line(&mut input)?;
+                let input = String::from_utf8(read_data.to_vec())
+                    .expect("received data is not valid utf-8");
                 eprintln!("recv {:?} from {:?}", &read_data, &src_addr);
                 if break_check(&input) {
                     break;
                 }
             }
-            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 eprint!(".");
                 continue;
             }
@@ -113,8 +121,6 @@ fn main_loop (mut break_check: impl Fn(&str) -> bool) -> io::Result<()> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
     #[test]
     fn test_basic() {
         assert_eq!('o' as u8, 'o' as u8);
