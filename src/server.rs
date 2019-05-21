@@ -6,9 +6,48 @@ struct LoopState {
     cfg: config::TerribleConfig,
     socket: std::net::UdpSocket,
     counter: u64,
+    cluster: Vec<SocketAddrV4>,
 }
 
-fn init_loop_state(saddr: Option<SocketAddrV4>) -> io::Result<LoopState> {
+type RaftTerm = u64;
+type RaftMember = SocketAddrV4;
+
+enum RaftMessageKind {
+    RequestVote,
+    Ack,
+    Nack,
+}
+
+struct RaftMessage {
+    term: RaftTerm,
+    from: RaftMember,
+    kind: RaftMessageKind {
+
+    }
+}
+
+enum RaftEvent {
+    Timeout,
+    Msg(RaftMessage)
+}
+
+
+enum RaftRole {
+    Follower,
+    Candidate,
+    Leader,
+}
+
+struct RaftState {
+    role: Role,
+}
+
+impl RaftState {
+    fn handle_event(&mut self, event: RaftEvent) {
+    }
+}
+
+fn init_loop_state(saddr: Option<SocketAddrV4>, cluster: Option<Vec<SocketAddrV4>>) -> io::Result<LoopState> {
     use std::fs::File;
     use std::net::UdpSocket;
     use std::time::Duration;
@@ -25,11 +64,12 @@ fn init_loop_state(saddr: Option<SocketAddrV4>) -> io::Result<LoopState> {
         cfg: cfg,
         socket: socket,
         counter: 0,
+        cluster: cluster.unwrap_or(vec![]),
     })
 }
 
-pub fn main_loop(saddr: Option<SocketAddrV4>, break_check: impl Fn(&str) -> bool) -> io::Result<()> {
-    let mut loop_state = init_loop_state(saddr)?;
+pub fn main_loop(saddr: Option<SocketAddrV4>, cluster: Option<Vec<SocketAddrV4>>, break_check: impl Fn(&str) -> bool) -> io::Result<()> {
+    let mut loop_state = init_loop_state(saddr, cluster)?;
     let mut recv_buffer = [0u8; 4096];
     loop {
         match loop_state.socket.recv_from(&mut recv_buffer) {

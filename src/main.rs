@@ -68,7 +68,7 @@ fn main() -> io::Result<()> {
             config::save(&cfg, &mut file)?;
             Ok(())
         }
-        RunMode::Loop => server::main_loop(None, |input: &str| -> bool { input.trim() == "stahp" }),
+        RunMode::Loop => server::main_loop(None, None, |input: &str| -> bool { input.trim() == "stahp" }),
         RunMode::LocalCluster => {
             let ports: Vec<u16> = vec![55550, 55551, 55552];
             let cluster: Vec<SocketAddrV4> = ports.into_iter().map(|port| { SocketAddrV4::new(Ipv4Addr::LOCALHOST, port) }).collect();
@@ -82,7 +82,7 @@ fn main() -> io::Result<()> {
                     .spawn(move || {
                         let bluster = cluster.clone();
                         println!("<{:?}> Hello, listening on {}", thread::current().id(), saddr);
-                        server::main_loop(Some(saddr), |input: &str| -> bool { input.trim() == "stahp" });
+                        server::main_loop(Some(saddr), Some(bluster), |input: &str| -> bool { input.trim() == "stahp" });
                     }).unwrap()
                     );
             };
