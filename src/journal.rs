@@ -5,9 +5,9 @@ pub trait StateOp {
 }
 
 pub trait Journal {
-    type Index;
-    type Op: StateOp<State = Self::State> + Copy;
+    type Index: Copy;
     type State;
+    type Op: StateOp<State = Self::State> + Copy;
 
     fn append_entry(&mut self, op: &Self::Op) -> Result<(), ()>;
     fn get_entry(&self, idx: Self::Index) -> Result<&Self::Op, ()>;
@@ -49,9 +49,10 @@ mod test {
         type State = T;
 
         fn apply(&self, state: &mut T) -> Result<(), ()> {
+            use CounterOp::*; // something like this should work
             match *self {
-                CounterOp::Increment(inc) => *state += inc,
-                CounterOp::Decrement(dec) => *state -= dec,
+                Increment(inc) => *state += inc,
+                Decrement(dec) => *state -= dec,
             }
             Ok(())
         }
@@ -83,7 +84,7 @@ mod test {
             &self.state
         }
 
-        fn get_entry(&self, idx: Self::Index) -> Result<&Op, ()> {
+        fn get_entry(&self, idx: Self::Index) -> Result<&Self::Op, ()> {
             self.log.get(idx).ok_or(())
         }
 
