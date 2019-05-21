@@ -1,5 +1,6 @@
 use std::io;
 use crate::config;
+use std::net::SocketAddrV4;
 
 struct LoopState {
     cfg: config::TerribleConfig,
@@ -7,12 +8,16 @@ struct LoopState {
     counter: u64,
 }
 
-fn init_loop_state() -> io::Result<LoopState> {
+fn init_loop_state(saddr: Option<SocketAddrV4>) -> io::Result<LoopState> {
     use std::fs::File;
     use std::net::UdpSocket;
     use std::time::Duration;
     let cfg = File::open("okay.cfg").and_then(|mut f| config::load(&mut f))?;
-    let socket = UdpSocket::bind("0.0.0.0:1234")?;
+    let socket =
+        match saddr {
+            Some(addr) => UdpSocket::bind(addr),
+            None => UdpSocket::bind("0.0.0.0:1234"),
+        }.unwrap();
     socket
         .set_read_timeout(Some(Duration::from_secs(5)))
         .expect("set_read_timeout failed");
@@ -23,8 +28,8 @@ fn init_loop_state() -> io::Result<LoopState> {
     })
 }
 
-pub fn main_loop(break_check: impl Fn(&str) -> bool) -> io::Result<()> {
-    let mut loop_state = init_loop_state()?;
+pub fn main_loop(saddr: Option<SocketAddrV4>, break_check: impl Fn(&str) -> bool) -> io::Result<()> {
+    let mut loop_state = init_loop_state(saddr)?;
     let mut recv_buffer = [0u8; 4096];
     loop {
         match loop_state.socket.recv_from(&mut recv_buffer) {
