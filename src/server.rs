@@ -21,9 +21,7 @@ enum RaftMessageKind {
 struct RaftMessage {
     term: RaftTerm,
     from: RaftMember,
-    kind: RaftMessageKind {
-
-    }
+    kind: RaftMessageKind,
 }
 
 enum RaftEvent {
@@ -39,7 +37,7 @@ enum RaftRole {
 }
 
 struct RaftState {
-    role: Role,
+    role: RaftRole,
 }
 
 impl RaftState {
@@ -69,7 +67,7 @@ fn init_loop_state(saddr: Option<SocketAddrV4>, cluster: Option<Vec<SocketAddrV4
 }
 
 pub fn main_loop(saddr: Option<SocketAddrV4>, cluster: Option<Vec<SocketAddrV4>>, break_check: impl Fn(&str) -> bool) -> io::Result<()> {
-    let mut loop_state = init_loop_state(saddr, cluster)?;
+    let mut loop_state = init_loop_state(saddr, cluster).expect("loop state initialization failed");
     let mut recv_buffer = [0u8; 4096];
     loop {
         match loop_state.socket.recv_from(&mut recv_buffer) {
