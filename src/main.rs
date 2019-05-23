@@ -8,6 +8,112 @@ mod server;
 mod config;
 mod journal;
 
+mod foo {
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Instant,Duration};
+
+    pub struct AsyncTimer<T: 'static + Ord + Copy + Send> {
+        join_handle: Option<thread::JoinHandle<()>>,
+        tx: mpsc::Sender<TimerSignal<T>>,
+    }
+
+    enum TimerSignal<T> {
+        Stop,
+        Clear,
+        Recurring(Duration, T),
+        Once(Instant, T),
+    }
+
+    impl<T: 'static + Ord + Copy + Send> AsyncTimer<T> {
+        pub fn new(emit: mpsc::Sender<T>) -> Self {
+            /* To give to the thread */
+            let emit = emit.clone();
+            let (tx, rx) = mpsc::channel();
+            let jh = thread::spawn(move || -> () {
+                timer_loop(emit, rx);
+            });
+            AsyncTimer {
+                join_handle: Some(jh),
+                tx: tx,
+            }
+        }
+
+        pub fn at(&mut self, data: T, at: Instant) {
+            self.tx.send(TimerSignal::Once(at, data));
+        }
+
+        pub fn for_duration(&mut self, data: T, in_dur: Duration) {
+            let at = Instant::now() + in_dur;
+            self.tx.send(TimerSignal::Once(at, data));
+        }
+
+        pub fn recurring(&mut self, data: T, period: Duration) {
+            self.tx.send(TimerSignal::Recurring(period, data));
+        }
+
+        pub fn clear(&mut self) {
+            self.tx.send(TimerSignal::Clear);
+        }
+
+        pub fn stop(&mut self) {
+            self.tx.send(TimerSignal::Stop);
+        }
+    }
+
+    impl<T: Ord + Copy + Send> Drop for AsyncTimer<T> {
+        fn drop(&mut self) {
+            self.stop();
+            if let Some(join_handle) = self.join_handle.take() {
+                join_handle.join();
+            }
+        }
+    }
+
+
+    fn timer_loop<T: Ord + Copy + Send>(emit: mpsc::Sender<T>, signal: mpsc::Receiver<TimerSignal<T>>) {
+        use std::collections::binary_heap::{BinaryHeap};
+        let mut event_queue: BinaryHeap<(Instant, Duration, T)> = BinaryHeap::new();
+        const IMMEDIATE: Duration = Duration::from_secs(0);
+        loop {
+            let now = Instant::now();
+            match event_queue.peek() {
+                None => {
+                    match signal.recv() {
+                        Ok(TimerSignal::Stop) => break,
+                        Ok(TimerSignal::Clear) => { event_queue.clear(); },
+                        Ok(TimerSignal::Recurring(duration, data)) => { event_queue.push((now + duration, duration, data)); },
+                        Ok(TimerSignal::Once(instant, data)) => { event_queue.push((instant, IMMEDIATE, data)); },
+                        Err(e) => { panic!("Timer signal channel closed! {:#?}", e); },
+                    }
+                },
+                Some(&(instant, recurrence, data)) => {
+                    eprintln!("instants: {:#?} vs {:#?}", now, instant);
+                    if now > instant {
+                        emit.send(data);
+                        event_queue.pop();
+                        continue;
+                    }
+                    match signal.recv_timeout(instant - now) {
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            emit.send(data);
+                            event_queue.pop();
+                            if recurrence != IMMEDIATE {
+                                event_queue.push((instant + recurrence, recurrence, data));
+                            }
+                        }
+                        Ok(TimerSignal::Stop) => break,
+                        Ok(TimerSignal::Clear) => { event_queue.clear(); },
+                        Ok(TimerSignal::Recurring(duration, data)) => { event_queue.push((now + duration, duration, data)); },
+                        Ok(TimerSignal::Once(instant, data)) => { event_queue.push((instant, IMMEDIATE, data)); },
+                        Err(e) => { panic!("some badness happened! {:#?}", e); },
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn print_usage() {
     eprintln!("usage: terribledb <node_name>");
 }
@@ -45,6 +151,7 @@ fn main() -> io::Result<()> {
     let run_mode = parse_args(args)?;
 
     eprintln!("run_mode {:?}", run_mode);
+    let x = 
     match run_mode {
         RunMode::GenConfig(filename) => {
             println!("lol: {}", filename);
@@ -77,5 +184,14 @@ fn main() -> io::Result<()> {
             Ok(())
         }
         RunMode::NoOp => Ok(()),
-    }
+    };
+    /* Timer testing */
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let mut timer = foo::AsyncTimer::new(sender.clone());
+    timer.for_duration(3, std::time::Duration::from_secs(3));
+    let pre = std::time::Instant::now();
+    receiver.recv();
+    let post = std::time::Instant::now();
+    eprintln!("timer waited {:#?}", post - pre);
+    x
 }
